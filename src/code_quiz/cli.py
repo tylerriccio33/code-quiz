@@ -46,7 +46,7 @@ def run(args: argparse.Namespace) -> None:
                 "tags": q.get("tags", []), "raw": r.raw,
                 "evidence": r.evidence, "gold_evidence": q.get("evidence", []),
                 "evidence_recall": grading.evidence_recall(r.evidence or [], q.get("evidence", [])),
-                "turns": r.turns, "cost_usd": r.cost_usd}
+                "turns": r.turns, "cost_usd": r.cost_usd, "tokens": r.tokens}
 
     try:
         with ThreadPoolExecutor(args.jobs) as ex:
@@ -56,8 +56,8 @@ def run(args: argparse.Namespace) -> None:
         shutil.rmtree(snap.parent, ignore_errors=True)
 
     meta = {"codebase": str(codebase), "agent": cmd.split()[0], "quiz": str(args.quiz), "timeout": timeout,
-            "trials": args.trials, "pass_threshold": args.pass_threshold}
-    summary = report.summarize(results, timeout, args.pass_threshold)
+            "trials": args.trials, "pass_threshold": args.pass_threshold, "token_budget": args.token_budget}
+    summary = report.summarize(results, timeout, args.pass_threshold, args.token_budget)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     (out / "results.json").write_text(json.dumps({"meta": meta, "summary": summary, "results": results}, indent=2))
@@ -84,6 +84,8 @@ def main() -> None:
     r.add_argument("--trials", type=int, default=1, help="runs per question (variance / pass@k)")
     r.add_argument("--jobs", type=int, default=4)
     r.add_argument("--pass-threshold", type=float, default=0.8)
+    r.add_argument("--token-budget", type=int, default=500_000,
+                   help="tokens per question at which the token discount bottoms out (default 500k)")
     r.add_argument("--agent-cmd", help="shell template with {prompt}; runs in the read-only snapshot")
     r.add_argument("--out", default="quiz-out")
     r.set_defaults(fn=run)

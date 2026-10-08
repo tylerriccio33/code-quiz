@@ -36,6 +36,23 @@ Write questions so their answers *can* be checked deterministically: prefer iden
 numbers, lists and multiple choice over free prose. The agent must end with `<answer>…</answer>`.
 Format hints are added to the prompt according to the grader.
 
+## How the agent is run
+For each question (and trial), `agent.ask()` starts the agent as a separate process inside the read-only snapshot:
+`claude -p '<prompt>' --output-format json` by default, or your own command via `--agent-cmd '... {prompt}'`.
+The prompt tells the agent three things:
+- it is scored on correctness first, then on speed and token usage, with the time limit stated;
+- it must end with `<evidence>` and `<answer>` tags;
+- the expected answer format.
+
+The process runs in its own process group, and the whole group is killed at the time limit (score 0).
+From `claude`'s JSON envelope we record the answer text, **wall-clock seconds**, **turns**, **tokens**
+(input + cache writes + cache reads + output) and **$ cost**. A custom agent that prints plain text gets
+time only.
+
+**Index** = mean over runs of correctness × efficiency. Efficiency starts at 1.0. Time used, up to the limit,
+takes off up to 25%. Tokens used, up to `--token-budget` (default 500k), takes off up to 25%. So a correct
+answer that maxes out both scores 0.5.
+
 ## Read-only enforcement
 1. The codebase is copied to a temp snapshot (minus .git/.venv/node_modules/target) with write bits removed.
 2. The default agent (`claude -p`) gets only `Read,Grep,Glob,LS`. Bash, Edit, Write and Web are disallowed.
@@ -70,6 +87,13 @@ and one shared behavioral quiz. Tangled packs in real-world anti-patterns: impor
 an `__init__` monkeypatch, layered config with a buried override, value-altering decorators, a stale README,
 dead twins of live functions, and misleading names. A strong agent still gets everything right.
 It needs **2.6× the turns**, though, and 22–28 turns on multi-step pricing questions against 8 on the clean code.
+
+Rerun after telling the agent that time and tokens count (1 trial each):
+- **clean:** 93.9, 100% correct, 4.1 turns, 64k tokens/question.
+- **tangled:** 84.7, **93% correct**, 7.7 turns, 88k tokens/question.
+
+Under pressure to be quick, the agent missed a tax total on the tangled code: 846 instead of 841. It read
+`settings/defaults.py` but never found the override layered in `settings.json` and the `_compat.py` monkeypatch.
 
 **Lessons:**
 1. Lookup questions ("where is X", "list X") saturate: grep answers them in about 2 turns on any codebase.

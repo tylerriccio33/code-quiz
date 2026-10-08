@@ -12,9 +12,15 @@ def _mean(xs: list[float]) -> float | None:
     return st.mean(xs) if xs else None
 
 
-def discounted(r: dict, timeout: float) -> float:
-    # Full credit if instant, linearly down to 50% at the limit: rewards answers that are *quick* to find.
-    return r["score"] * (1 - 0.5 * min(r["seconds"], timeout) / timeout)
+def efficiency(r: dict, timeout: float, token_budget: int) -> float:
+    """1.0 for free and instant, down to 0.5 at the time limit and at the token budget (each costs up to 25%)."""
+    t = min(r["seconds"], timeout) / timeout
+    k = min(r["tokens"], token_budget) / token_budget if r.get("tokens") is not None else t
+    return 1 - 0.25 * t - 0.25 * k
+
+
+def discounted(r: dict, timeout: float, token_budget: int = 500_000) -> float:
+    return r["score"] * efficiency(r, timeout, token_budget)
 
 
 def doc_only_miss(r: dict) -> bool:
@@ -38,6 +44,7 @@ def per_question(results: list[dict], pass_threshold: float) -> list[dict]:
             "stdev": st.pstdev(scores) if len(scores) > 1 else 0.0,
             "seconds": st.median(r["seconds"] for r in rs),
             "turns": _mean([r.get("turns") for r in rs]),
+            "tokens": _mean([r.get("tokens") for r in rs]),
             "evidence_recall": _mean([r.get("evidence_recall") for r in rs]),
             "answers": [("TIMEOUT" if r["timed_out"] else r["answer"]) for r in rs],
             "doc_drift": any(doc_only_miss(r) for r in rs),
@@ -45,9 +52,9 @@ def per_question(results: list[dict], pass_threshold: float) -> list[dict]:
     return rows
 
 
-def summarize(results: list[dict], timeout: float, pass_threshold: float) -> dict:
+def summarize(results: list[dict], timeout: float, pass_threshold: float, token_budget: int = 500_000) -> dict:
     qs = per_question(results, pass_threshold)
-    disc = [discounted(r, timeout) for r in results]
+    disc = [discounted(r, timeout, token_budget) for r in results]
     by_tag: dict[str, list[float]] = defaultdict(list)
     for r in results:
         for t in r.get("tags") or ["untagged"]:
@@ -62,6 +69,7 @@ def summarize(results: list[dict], timeout: float, pass_threshold: float) -> dic
         "median_seconds": st.median(r["seconds"] for r in results) if results else 0.0,
         "mean_turns": _mean([r.get("turns") for r in results]),
         "total_cost_usd": sum(r.get("cost_usd") or 0 for r in results),
+        "median_tokens": st.median(ts) if (ts := [r["tokens"] for r in results if r.get("tokens") is not None]) else None,
         "evidence_recall": _mean([r.get("evidence_recall") for r in results]),
         "simplicity_index": round(100 * idx, 1),
         "grade": _letter(idx),
@@ -93,7 +101,8 @@ def markdown(meta: dict, summary: dict, results: list[dict]) -> str:
         f"# Code Quiz report: `{meta['codebase']}`", "",
         f"Agent: `{meta['agent']}` | {meta['timeout']}s/question | {k} trial(s) | pass threshold {meta['pass_threshold']}", "",
         f"## Simplicity index: **{s['simplicity_index']} / 100** (grade {s['grade']})", "",
-        f"**Effort:** {_f(s['mean_turns'], '.1f')} agent turns and {s['median_seconds']:.0f}s median per question. "
+        f"**Effort:** {_f(s['mean_turns'], '.1f')} agent turns, {s['median_seconds']:.0f}s and "
+        f"{_f(s['median_tokens'], ',.0f')} tokens median per question. "
         "When correctness saturates, compare codebases on effort.", "",
         "| metric | value |", "|---|---|",
         f"| questions / runs | {s['questions']} / {s['runs']} |",
@@ -103,18 +112,20 @@ def markdown(meta: dict, summary: dict, results: list[dict]) -> str:
         f"| evidence recall (cited the right files) | {_f(s['evidence_recall'])} |",
         f"| median time | {s['median_seconds']:.1f}s |",
         f"| mean agent turns | {_f(s['mean_turns'], '.1f')} |",
+        f"| median tokens / question | {_f(s['median_tokens'], ',.0f')} |",
         f"| timeouts | {s['timeouts']} |",
         f"| cost | ${s['total_cost_usd']:.2f} |", "",
-        "Index = mean correctness discounted by time used (full credit at 0s, half at the limit).", "",
+        f"Index = mean correctness × efficiency. Efficiency starts at 1, and time (up to the {meta['timeout']}s limit) and "
+        f"tokens (up to {meta.get('token_budget', 500_000):,}) each take off up to 25%.", "",
         "## By tag", "", "| tag | mean score |", "|---|---|",
         *[f"| {t} | {v:.2f} |" for t, v in s["by_tag"].items()], "",
         "## Questions", "",
-        "| id | grader | mean | pass^k | time | turns | evidence | answer(s) | expected |",
-        "|---|---|---|---|---|---|---|---|---|",
+        "| id | grader | mean | pass^k | time | turns | tokens | evidence | answer(s) | expected |",
+        "|---|---|---|---|---|---|---|---|---|---|",
     ]
     for q in s["per_question"]:
         out.append(f"| {q['id']}{' ⚠' if q['doc_drift'] else ''} | {q['grader']} | {q['mean']:.2f} | {q['pass_all']:.0f} | "
-                   f"{q['seconds']:.0f}s | {_f(q['turns'], '.0f')} | {_f(q['evidence_recall'])} | "
+                   f"{q['seconds']:.0f}s | {_f(q['turns'], '.0f')} | {_f(q['tokens'], ',.0f')} | {_f(q['evidence_recall'])} | "
                    f"{_cell(' / '.join(q['answers']), 90)} | {_cell(q['expected'], 60)} |")
     if s["doc_drift_suspects"]:
         out += ["", "## ⚠ Possible doc/code drift", "",

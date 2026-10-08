@@ -45,3 +45,13 @@ def test_timeout_kills_agent(tmp_path):
     from code_quiz.agent import ask
     r = ask({"question": "q"}, tmp_path, 1, "sleep 30; echo {prompt}")
     assert r.timed_out and r.seconds < 5
+
+
+def test_tokens_parsed_and_discounted():
+    from code_quiz.agent import _parse
+    from code_quiz.report import efficiency
+    out = '{"result": "x", "num_turns": 3, "total_cost_usd": 0.1, "usage": {"input_tokens": 10,' \
+          ' "cache_creation_input_tokens": 100, "cache_read_input_tokens": 1000, "output_tokens": 5}}'
+    assert _parse(out) == ("x", 3, 0.1, 1115)
+    assert efficiency({"seconds": 0, "tokens": 0}, 100, 1000) == 1.0
+    assert efficiency({"seconds": 100, "tokens": 5000}, 100, 1000) == 0.5

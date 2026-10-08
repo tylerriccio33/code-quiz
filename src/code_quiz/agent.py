@@ -16,6 +16,8 @@ from pathlib import Path
 
 PROMPT = """You are taking a timed quiz about the codebase in the current directory.
 You have READ-ONLY access. Do not attempt to modify anything.
+You are scored on correctness first, then on SPEED and TOKEN USAGE: you have {timeout:.0f} seconds, and every
+second and every token you spend lowers your score. Read only what you need, then answer.
 Answer the question as concisely as possible.
 {format_hint}
 End your reply with the files you based the answer on and the final answer, exactly like:
@@ -49,6 +51,7 @@ class Run:
     evidence: list[str] | None = None
     turns: int | None = None
     cost_usd: float | None = None
+    tokens: int | None = None
 
 
 def extract_answer(text: str) -> str:
@@ -69,13 +72,19 @@ def extract_evidence(text: str) -> list[str]:
     return [x.strip(" `") for x in re.split(r"[,\n]+", m[-1]) if x.strip(" `")]
 
 
-def _parse(stdout: str) -> tuple[str, int | None, float | None]:
-    """Accept either plain text or the claude CLI's --output-format json envelope."""
+def _parse(stdout: str) -> tuple[str, int | None, float | None, int | None]:
+    """Accept either plain text or the claude CLI's --output-format json envelope.
+
+    Tokens = every token the agent processed: input + cache writes + cache reads + output.
+    """
     try:
         d = json.loads(stdout)
-        return d.get("result", ""), d.get("num_turns"), d.get("total_cost_usd")
-    except (json.JSONDecodeError, AttributeError):
-        return stdout, None, None
+    except json.JSONDecodeError:
+        return stdout, None, None, None
+    u = d.get("usage") or {}
+    keys = ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens", "output_tokens")
+    tokens = sum(u.get(k) or 0 for k in keys) if u else None
+    return d.get("result", ""), d.get("num_turns"), d.get("total_cost_usd"), tokens
 
 
 def readonly_snapshot(src: Path, ignore: list[str] = DEFAULT_IGNORE) -> Path:
@@ -103,6 +112,7 @@ def ask(question: dict, cwd: Path, timeout: float, cmd_template: str = CLAUDE_CM
     prompt = PROMPT.format(
         question=question["question"],
         format_hint=FORMAT_HINTS.get(question.get("grader", ""), ""),
+        timeout=timeout,
     )
     cmd = cmd_template.format(prompt=shlex.quote(prompt))
     t0 = time.monotonic()
@@ -112,9 +122,9 @@ def ask(question: dict, cwd: Path, timeout: float, cmd_template: str = CLAUDE_CM
     try:
         stdout, stderr = p.communicate(timeout=timeout)
         dt = time.monotonic() - t0
-        text, turns, cost = _parse(stdout)
+        text, turns, cost, tokens = _parse(stdout)
         return Run(text, extract_answer(text), dt, False, stderr.strip()[-500:] if p.returncode else "",
-                   extract_evidence(text), turns, cost)
+                   extract_evidence(text), turns, cost, tokens)
     except subprocess.TimeoutExpired:
         os.killpg(p.pid, signal.SIGKILL)
         out, _ = p.communicate()
