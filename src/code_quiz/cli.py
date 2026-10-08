@@ -30,6 +30,7 @@ def run(args: argparse.Namespace) -> None:
         codebase = (Path(args.quiz).parent / quiz.get("codebase", ".")).expanduser().resolve()
     timeout = args.timeout or quiz.get("timeout", 120)
     cmd = args.agent_cmd or agent.CLAUDE_CMD
+    model = args.model or quiz.get("model", agent.DEFAULT_MODEL)
     snap = agent.readonly_snapshot(codebase, agent.DEFAULT_IGNORE + quiz.get("ignore", []))
     print(f"read-only snapshot: {snap}", file=sys.stderr)
 
@@ -37,7 +38,7 @@ def run(args: argparse.Namespace) -> None:
 
     def one(job: tuple[dict, int]) -> dict:
         q, t = job
-        r = agent.ask(q, snap, q.get("timeout", timeout), cmd)
+        r = agent.ask(q, snap, q.get("timeout", timeout), cmd, model)
         g = grading.grade(r.answer, q) if not r.timed_out else grading.Grade(0.0, q.get("grader", "token_f1"), "timeout")
         print(f"  {q['id']}#{t}: {g.score:.2f} in {r.seconds:.0f}s{' TIMEOUT' if r.timed_out else ''}", file=sys.stderr)
         return {"id": q["id"], "trial": t, "question": q["question"], "expected": q["answer"],
@@ -55,7 +56,7 @@ def run(args: argparse.Namespace) -> None:
         agent.make_writable(snap.parent)
         shutil.rmtree(snap.parent, ignore_errors=True)
 
-    meta = {"codebase": str(codebase), "agent": cmd.split()[0], "quiz": str(args.quiz), "timeout": timeout,
+    meta = {"codebase": str(codebase), "agent": cmd.split()[0], "model": model, "quiz": str(args.quiz), "timeout": timeout,
             "trials": args.trials, "pass_threshold": args.pass_threshold, "token_budget": args.token_budget}
     summary = report.summarize(results, timeout, args.pass_threshold, args.token_budget)
     out = Path(args.out)
@@ -84,9 +85,10 @@ def main() -> None:
     r.add_argument("--trials", type=int, default=1, help="runs per question (variance / pass@k)")
     r.add_argument("--jobs", type=int, default=4)
     r.add_argument("--pass-threshold", type=float, default=0.8)
-    r.add_argument("--token-budget", type=int, default=500_000,
-                   help="tokens per question at which the token discount bottoms out (default 500k)")
-    r.add_argument("--agent-cmd", help="shell template with {prompt}; runs in the read-only snapshot")
+    r.add_argument("--token-budget", type=int, default=150_000,
+                   help="tokens per question at which the token discount bottoms out (default 150k)")
+    r.add_argument("--model", help="model for the default claude agent: haiku (default), sonnet, opus, or a full id")
+    r.add_argument("--agent-cmd", help="shell template with {prompt} (and optionally {model}); runs in the snapshot")
     r.add_argument("--out", default="quiz-out")
     r.set_defaults(fn=run)
     g = sub.add_parser("grade", help="grade one response string against a question")

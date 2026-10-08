@@ -5,9 +5,15 @@ An agent answers each one with **read-only** access under a **time limit**. Ever
 graded **deterministically** (no LLM judge), and you get a simplicity report.
 
 ```bash
-uv run code-quiz run examples/self.yaml --timeout 120 --trials 3 --out quiz-out
+uv run code-quiz run examples/self.yaml --model haiku --trials 3 --out quiz-out   # model: haiku (default) | sonnet | opus
 uv run code-quiz grade examples/self.yaml graders "<answer>exact, set</answer>"   # test a grader spec
 ```
+
+## Choosing the agent
+Think of the agent as a **junior dev** being handed the repo. The default is `--model haiku`; `sonnet` is a
+reasonable second opinion. A strong model like Opus answers almost anything given enough turns, which hides the
+difference between a clear codebase and a confusing one. A quiz file can pin a model with `model: sonnet`, and
+`--model` overrides it. For a non-Claude agent, use `--agent-cmd 'my-agent --model {model} {prompt}'`.
 
 ## Quiz format (YAML)
 ```yaml
@@ -50,7 +56,7 @@ From `claude`'s JSON envelope we record the answer text, **wall-clock seconds**,
 time only.
 
 **Index** = mean over runs of correctness × efficiency. Efficiency starts at 1.0. Time used, up to the limit,
-takes off up to 25%. Tokens used, up to `--token-budget` (default 500k), takes off up to 25%. So a correct
+takes off up to 25%. Tokens used, up to `--token-budget` (default 150k), takes off up to 25%. So a correct
 answer that maxes out both scores 0.5.
 
 ## Read-only enforcement
@@ -64,6 +70,67 @@ and its stdout is graded.
 `quiz-out/report.md` and `results.json` (with raw transcripts). The **simplicity index** (0–100) is
 mean correctness discounted linearly by time used: full credit at 0s, half credit at the limit.
 Timeouts score 0. Run `--trials N` to average out agent variance.
+
+## Writing a quiz
+
+A good quiz asks what a new teammate would actually ask in their first weeks. Its answers must be **checkable
+without judgment**: a number, a name, a file, a set of files, or a multiple-choice letter. Three question types
+carry most of the signal. Lookup questions ("where is X") saturate on every codebase, because grep answers them.
+
+**1. How do I add X?** Tests whether extension points are obvious.
+```yaml
+- id: howto_binop
+  question: I want to add a binary operator to the parser. Which two functions hold precedence tables that must agree?
+  answer: [binop, fold_prec]
+  grader: keywords
+  evidence: [crates/parser/src/shared.rs, crates/parser/src/expr.rs]
+```
+Grade with `set` ("which files must change"), scored by F1 against the files a real change touched. Use
+`keywords` for "which functions/tables". Mine these from real commits: `git show --stat <a feature commit>`
+gives you the true file set.
+
+**2. Does this rule fire?** Tests whether behavior can be predicted from reading the code.
+```yaml
+- id: rule_rowlocal_symput
+  question: >-
+    In a step that also does `call symput('rate', ...)`, is `y = x * &rate;` row-local?
+    A) yes  B) no, it reads a macro var in a step that rebinds macro vars  C) ...  D) ...
+  answer: B
+  grader: choice
+```
+Prefer concrete inputs: "what total does this order produce" (`numeric`), "which rules apply to this input"
+(`set`). Make the wrong options plausible, e.g. what the docs say, or what a similar-looking function does.
+**Verify every answer by running the code**, never from memory or docs (see `fixtures/check_equivalence.py`).
+
+**3. My X fails like this. Where is it coming from?** Tests whether failures can be traced back to their source.
+```yaml
+- id: debug_hash_method
+  question: >-
+    Compiling `declare hash h(); rc = h.frobnicate();` fails with "LoweringError: h.frobnicate(): no such
+    method on a hash object". Which file raises it, and which file holds the method list it checks?
+  answer: [row_loop.py, objects.py]
+  grader: keywords
+```
+Paste the **real error text** a user would see. Reproduce it first, then grep for where it's raised. Avoid
+errors raised from many places (e.g. one exception class used in 8 files), because there's no single right answer.
+
+**Principles**
+- **One fact per question.** If you can't write the answer key in under 10 words, split the question.
+- **Prefer behavior over location.** "What does it do" separates codebases; "where is it" doesn't.
+- **Phrase the answer format the way the grader parses it.** Ask for "file names" when grading with `keywords`, a
+  letter when grading with `choice`, and a list when grading with `set`.
+- **Avoid unique strings in the question.** If the question contains `FRAME_FUNCS`, grep finds the answer in one
+  turn. Describe the concept instead: "the set of functions opt can translate to polars".
+- **Always give `evidence:`.** Evidence recall shows whether the agent found the answer or guessed it.
+- **Expect drift.** When the agent is wrong and cites only docs, check the docs before blaming the agent
+  (marked ⚠ in the report).
+- **Tag questions** (`easy`/`medium`/`hard`, `howto`/`rule`/`debug`). The per-tag table shows *which kind* of
+  understanding the codebase makes hard.
+- **Answer keys go stale.** Code moves under a live repo. When a codebase changes, re-check the keys, or quiz a
+  pinned commit. (Haiku "failed" a sas-ir question by correctly finding a function that had just moved to a new
+  file.)
+- **Verify the key, then run the quiz with `--trials 2+`.** If pass^k < pass@k, the agent is unreliable on that
+  question, which is a signal in itself.
 
 ## Evidence, trials and drift
 - The agent must also cite `<evidence>files</evidence>`. A question's `evidence:` list scores **evidence recall**.
@@ -94,6 +161,18 @@ Rerun after telling the agent that time and tokens count (1 trial each):
 
 Under pressure to be quick, the agent missed a tax total on the tangled code: 846 instead of 841. It read
 `settings/defaults.py` but never found the override layered in `settings.json` and the `_compat.py` monkeypatch.
+
+With the default **Haiku** agent and a 150k token budget (1 trial):
+
+| codebase | index | correct | mean turns | median tokens |
+|---|---|---|---|---|
+| `fixtures/clean` | 87.2 | 100% | 4.1 | 65k |
+| `fixtures/tangled` | 80.0 | 100% | 9.4 | 89k |
+| sas-ir (21 q, incl. how-to / rule / debug) | 77.3* | 95%* | 2.5 | 93k |
+
+\* The one sas-ir miss was a stale answer key (the function had moved), since fixed. sas-ir's token count is
+high even at 2.5 turns because its AGENTS.md alone is about 25k tokens. Haiku costs about $0.05–0.17 per run, versus
+about $2–9 on Opus.
 
 **Lessons:**
 1. Lookup questions ("where is X", "list X") saturate: grep answers them in about 2 turns on any codebase.

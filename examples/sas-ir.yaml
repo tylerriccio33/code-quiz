@@ -89,9 +89,9 @@ questions:
     tags: [hard, code]
   - id: splice_decider
     question: Which Rust source file defines the function that decides whether a macro body is spliced in as text rather than compiled to a def? Give the path.
-    answer: [crates/resolve/src/rpass.rs, rpass.rs]
+    answer: [rpass/rewrites.rs, rpass.rs]   # moved into rpass/rewrites.rs in c8ad51d; both accepted
     grader: contains
-    evidence: [crates/resolve/src/rpass.rs]
+    evidence: [crates/resolve/src/rpass/rewrites.rs]
     tags: [hard, code]
   - id: fragment_crate
     question: Which crate and which file define `is_statement_fragment`? Answer as crate, file.
@@ -111,3 +111,39 @@ questions:
     grader: numeric
     evidence: [src/sas_ir/ast_nodes/__init__.py]
     tags: [hard, code]
+  # --- the three practical question types (see "Writing a quiz" in README)
+  - id: howto_binop
+    question: >-
+      How to add a feature: I want to add a new binary operator to the SAS expression parser. Which two
+      Rust functions hold precedence tables that must agree? Give their names.
+    answer: [binop, fold_prec]
+    grader: keywords
+    evidence: [crates/parser/src/shared.rs, crates/parser/src/expr.rs]
+    tags: [hard, howto]
+  - id: howto_object_class
+    question: >-
+      How to add a feature: to support a new DATA-step component-object class, which two Python dict
+      tables need a new entry? Give their names.
+    answer: [OBJECT_CLASSES, BACKENDS]
+    grader: keywords
+    evidence: [src/sas_ir/objects.py, src/sas_ir/codegen/objects.py]
+    tags: [hard, howto]
+  - id: rule_rowlocal_symput
+    question: >-
+      Does a rule fire: in a DATA step that also contains `call symput('rate', ...)`, is the statement
+      `y = x * &rate;` classified row-local by the opt layer (so it can become a vectorized/UDF statement)?
+      A) yes, it is a plain assignment  B) no, because it reads a macro variable in a step that rebinds
+      macro variables  C) no, because assignments are never row-local  D) yes, macro reads are always row-local
+    answer: B
+    grader: choice
+    evidence: [src/sas_ir/opt/facts.py]
+    tags: [hard, rule]
+  - id: debug_hash_method
+    question: >-
+      Debugging: compiling a program with `declare hash h(); rc = h.frobnicate();` fails with
+      "LoweringError: h.frobnicate(): no such method on a hash object". Which Python file raises this
+      error, and which file holds the method list it checks against? Give both file names.
+    answer: [row_loop.py, objects.py]
+    grader: keywords
+    evidence: [src/sas_ir/lower/row_loop.py, src/sas_ir/objects.py]
+    tags: [hard, debug]

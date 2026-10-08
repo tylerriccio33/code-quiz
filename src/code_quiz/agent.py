@@ -35,7 +35,7 @@ FORMAT_HINTS = {
 
 # claude CLI: only read tools, no Bash/Edit/Write/Web.
 CLAUDE_CMD = (
-    "claude -p {prompt} --output-format json "
+    "claude -p {prompt} --model {model} --output-format json "
     "--allowedTools Read,Grep,Glob,LS "
     "--disallowedTools Bash,Edit,Write,MultiEdit,NotebookEdit,WebFetch,WebSearch"
 )
@@ -108,13 +108,16 @@ def make_writable(path: Path) -> None:
     Path(path).chmod(Path(path).stat().st_mode | stat.S_IWUSR)
 
 
-def ask(question: dict, cwd: Path, timeout: float, cmd_template: str = CLAUDE_CMD) -> Run:
+DEFAULT_MODEL = "haiku"  # a junior dev: if Haiku can find it fast, the code is easy to work with
+
+
+def ask(question: dict, cwd: Path, timeout: float, cmd_template: str = CLAUDE_CMD, model: str = DEFAULT_MODEL) -> Run:
     prompt = PROMPT.format(
         question=question["question"],
         format_hint=FORMAT_HINTS.get(question.get("grader", ""), ""),
         timeout=timeout,
     )
-    cmd = cmd_template.format(prompt=shlex.quote(prompt))
+    cmd = cmd_template.format(prompt=shlex.quote(prompt), model=shlex.quote(model))
     t0 = time.monotonic()
     # own process group so a timeout kills the agent too, not just the shell
     p = subprocess.Popen(cmd, shell=True, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,

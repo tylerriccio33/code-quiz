@@ -19,7 +19,7 @@ def efficiency(r: dict, timeout: float, token_budget: int) -> float:
     return 1 - 0.25 * t - 0.25 * k
 
 
-def discounted(r: dict, timeout: float, token_budget: int = 500_000) -> float:
+def discounted(r: dict, timeout: float, token_budget: int = 150_000) -> float:
     return r["score"] * efficiency(r, timeout, token_budget)
 
 
@@ -52,7 +52,7 @@ def per_question(results: list[dict], pass_threshold: float) -> list[dict]:
     return rows
 
 
-def summarize(results: list[dict], timeout: float, pass_threshold: float, token_budget: int = 500_000) -> dict:
+def summarize(results: list[dict], timeout: float, pass_threshold: float, token_budget: int = 150_000) -> dict:
     qs = per_question(results, pass_threshold)
     disc = [discounted(r, timeout, token_budget) for r in results]
     by_tag: dict[str, list[float]] = defaultdict(list)
@@ -99,7 +99,7 @@ def markdown(meta: dict, summary: dict, results: list[dict]) -> str:
     k = meta["trials"]
     out = [
         f"# Code Quiz report: `{meta['codebase']}`", "",
-        f"Agent: `{meta['agent']}` | {meta['timeout']}s/question | {k} trial(s) | pass threshold {meta['pass_threshold']}", "",
+        f"Agent: `{meta['agent']}` model `{meta.get('model', '?')}` | {meta['timeout']}s/question | {k} trial(s) | pass threshold {meta['pass_threshold']}", "",
         f"## Simplicity index: **{s['simplicity_index']} / 100** (grade {s['grade']})", "",
         f"**Effort:** {_f(s['mean_turns'], '.1f')} agent turns, {s['median_seconds']:.0f}s and "
         f"{_f(s['median_tokens'], ',.0f')} tokens median per question. "
@@ -116,7 +116,7 @@ def markdown(meta: dict, summary: dict, results: list[dict]) -> str:
         f"| timeouts | {s['timeouts']} |",
         f"| cost | ${s['total_cost_usd']:.2f} |", "",
         f"Index = mean correctness × efficiency. Efficiency starts at 1, and time (up to the {meta['timeout']}s limit) and "
-        f"tokens (up to {meta.get('token_budget', 500_000):,}) each take off up to 25%.", "",
+        f"tokens (up to {meta.get('token_budget', 150_000):,}) each take off up to 25%.", "",
         "## By tag", "", "| tag | mean score |", "|---|---|",
         *[f"| {t} | {v:.2f} |" for t, v in s["by_tag"].items()], "",
         "## Questions", "",
