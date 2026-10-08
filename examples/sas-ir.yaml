@@ -1,0 +1,113 @@
+codebase: ../../sas-ir
+timeout: 240
+ignore: [tests/integration/code, .mypy_cache, .ruff_cache, "*.csv"]
+questions:
+  # --- easy: locate / read the docs
+  - id: stages
+    question: List the pipeline stages of the transpiler, in order.
+    answer: [tokenize, parse, resolve, lower, optimize, generate]
+    grader: set
+    evidence: [AGENTS.md]
+    tags: [easy, docs]
+  - id: trace_env
+    question: What environment variable makes the front end write the resolve loop's trace?
+    answer: SAS_IR_TRACE_RESOLVE
+    grader: contains
+    evidence: [AGENTS.md, crates/resolve/src/trace.rs]
+    tags: [easy, docs]
+  - id: coverage_floor
+    question: What minimum pyrefly type coverage percentage does the project enforce?
+    answer: 94
+    grader: numeric
+    evidence: [Makefile]
+    tags: [easy, tooling]
+  - id: test_fast_n
+    question: By default, how many tests does `make test-fast` / `make test-quick` run?
+    answer: 200
+    grader: numeric
+    evidence: [Makefile]
+    tags: [easy, tooling]
+  # --- medium: enumerate from code
+  - id: lattice
+    question: List every member of the MacroType enum as defined in the code (its string values).
+    answer: [Unknown, Void, Scalar, SqlText, FrameFragment, UnusedParam]
+    grader: set
+    evidence: [src/sas_ir/ast_nodes/_gen.py, crates/typeinfer/src/values.rs]
+    tags: [medium, code, drift-prone]
+  - id: modify_file
+    question: Which Python file defines the class implementing the mutable table used for DATA-step MODIFY at run time? Give the path.
+    answer: [src/sas_ir/runtime_modify.py, runtime_modify.py]
+    grader: contains
+    evidence: [src/sas_ir/runtime_modify.py]
+    tags: [medium, code, drift-prone]
+  - id: bta_deps
+    question: Which crates does the bta crate depend on (path dependencies in its Cargo.toml)?
+    answer: [ast, lexer, tokens, typeinfer]
+    grader: set
+    evidence: [crates/bta/Cargo.toml]
+    tags: [medium, code]
+  - id: binding_variants
+    question: List the variants of the Binding enum in crates/bta.
+    answer: [Literal, RuntimeName, ItemText, Choice, Loop, Family, Run, Unbound]
+    grader: set
+    evidence: [crates/bta/src/binder.rs]
+    tags: [medium, code]
+  - id: modify_methods
+    question: List the public methods (no leading underscore, excluding __init__) of the MODIFY run-time table class.
+    answer: [next, by, key, point, replace, remove, append, to_frame]
+    grader: set
+    evidence: [src/sas_ir/runtime_modify.py]
+    tags: [medium, code]
+  - id: lift_passes
+    question: List every function in src/sas_ir/opt/passes.py whose name starts with lift_.
+    answer: [lift_assign, lift_window, lift_accumulator, lift_carry, lift_running_max, lift_if, lift_filter, lift_route, lift_udf]
+    grader: set
+    evidence: [src/sas_ir/opt/passes.py]
+    tags: [medium, code]
+  - id: object_classes
+    question: Which DATA-step component object classes does the class table support?
+    answer: [hash, hiter, odsout]
+    grader: set
+    evidence: [src/sas_ir/objects.py]
+    tags: [medium, code]
+  # --- hard: trace across files
+  - id: frame_funcs
+    question: >-
+      In the opt layer, what is FRAME_FUNCS defined as? A) a hand-written list of polars functions
+      B) the union of NUM_FUNCS and CHAR_FUNCS C) every function in sas_functions.py D) it is computed at runtime from polars
+    answer: B
+    grader: choice
+    evidence: [src/sas_ir/opt/kernel.py]
+    tags: [hard, code]
+  - id: sql_boundary
+    question: >-
+      The static SQL macro-text path refuses with one exception class. Name that class, the class it
+      directly inherits from, and the file both are defined in.
+    answer: [SqlTextBoundary, ArchBoundary, errors.py]
+    grader: keywords
+    evidence: [src/sas_ir/errors.py, src/sas_ir/lower/sql_slots.py]
+    tags: [hard, code]
+  - id: splice_decider
+    question: Which Rust source file defines the function that decides whether a macro body is spliced in as text rather than compiled to a def? Give the path.
+    answer: [crates/resolve/src/rpass.rs, rpass.rs]
+    grader: contains
+    evidence: [crates/resolve/src/rpass.rs]
+    tags: [hard, code]
+  - id: fragment_crate
+    question: Which crate and which file define `is_statement_fragment`? Answer as crate, file.
+    answer: [typeinfer, macro_rules.rs]
+    grader: keywords
+    evidence: [crates/typeinfer/src/macro_rules.rs]
+    tags: [hard, code]
+  - id: row_udf_runtime
+    question: A row-local statement opt cannot vectorize becomes an ir.RowUdf. Which runtime Python file defines the helper the generated frame code calls to run it per row? Give the path.
+    answer: [src/sas_ir/runtime_loop.py, runtime_loop.py]
+    grader: contains
+    evidence: [src/sas_ir/runtime_loop.py, src/sas_ir/ir.py]
+    tags: [hard, code]
+  - id: fold_ops_count
+    question: How many operators are in FAMILY_FOLD_OPS (the associative operators a %do expression fold may join on)?
+    answer: 8
+    grader: numeric
+    evidence: [src/sas_ir/ast_nodes/__init__.py]
+    tags: [hard, code]

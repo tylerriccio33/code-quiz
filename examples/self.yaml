@@ -1,0 +1,31 @@
+# Quiz about code-quiz itself. Each question picks a deterministic grader.
+codebase: ..
+timeout: 90
+questions:
+  - id: entry
+    question: Which function is the console-script entry point for this package? Give module.function.
+    answer: ["code_quiz.cli.main", "cli.main", "main"]
+    grader: contains
+    tags: [navigation]
+  - id: graders
+    question: List every grader kind name supported by the grade() function.
+    answer: [exact, contains, token_f1, set, numeric, choice, regex, keywords]
+    grader: set
+    tags: [comprehension]
+  - id: default_timeout
+    question: What is the default per-question timeout in seconds if neither the CLI nor the quiz sets one?
+    answer: 120
+    grader: numeric
+    tags: [config]
+  - id: readonly
+    question: How does the tool keep the agent from modifying the codebase? Name the mechanisms.
+    answer: [copy, permission, allowedTools, temp]
+    grader: keywords
+    tags: [architecture]
+  - id: discount
+    question: >-
+      How is the simplicity index affected by time? A) not at all B) linear discount to 50% at the limit
+      C) exponential decay D) timeouts only
+    answer: B
+    grader: choice
+    tags: [comprehension]

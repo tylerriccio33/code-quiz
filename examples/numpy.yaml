@@ -1,0 +1,75 @@
+codebase: ../corpora/numpy
+timeout: 240
+questions:
+  - id: einsum_c_file
+    question: Which C/C++ source file implements the core of einsum (PyArray_EinsteinSum)? Give the repo-relative path.
+    answer: [numpy/_core/src/multiarray/einsum.cpp, einsum.cpp]
+    grader: contains
+    tags: [easy, navigation]
+    evidence: [numpy/_core/src/multiarray/einsum.cpp]
+  - id: norm_file
+    question: In which Python file is numpy.linalg.norm defined? Give the repo-relative path.
+    answer: [numpy/linalg/_linalg.py, _linalg.py]
+    grader: contains
+    tags: [easy, navigation]
+    evidence: [numpy/linalg/_linalg.py]
+  - id: pad_file
+    question: In which Python file is numpy.pad defined? Give the repo-relative path.
+    answer: [numpy/lib/_arraypad_impl.py, _arraypad_impl.py]
+    grader: contains
+    tags: [easy, navigation]
+    evidence: [numpy/lib/_arraypad_impl.py]
+  - id: dlpack_file
+    question: Which C source file implements NumPy's DLPack support (from_dlpack / __dlpack__)? Give the repo-relative path.
+    answer: [numpy/_core/src/multiarray/dlpack.c, dlpack.c]
+    grader: contains
+    tags: [easy, navigation]
+    evidence: [numpy/_core/src/multiarray/dlpack.c]
+  - id: pad_modes
+    question: List the string `mode` names numpy.pad accepts (the keys of the allowed_kwargs table in its implementation).
+    answer: [constant, edge, linear_ramp, maximum, mean, median, minimum, reflect, symmetric, wrap, empty]
+    grader: set
+    tags: [medium]
+    evidence: [numpy/lib/_arraypad_impl.py]
+  - id: fft_all
+    question: List the names in __all__ of numpy/fft/_pocketfft.py.
+    answer: [fft, ifft, rfft, irfft, hfft, ihfft, rfftn, irfftn, rfft2, irfft2, fft2, ifft2, fftn, ifftn]
+    grader: set
+    tags: [medium]
+    evidence: [numpy/fft/_pocketfft.py]
+  - id: hist_bins
+    question: List the string bin estimators numpy.histogram supports (keys of _hist_bin_selectors).
+    answer: [stone, auto, doane, fd, rice, scott, sqrt, sturges]
+    grader: set
+    tags: [medium]
+    evidence: [numpy/lib/_histograms_impl.py]
+  - id: quantile_methods
+    question: List the method names numpy.quantile/percentile support (keys of _QuantileMethods).
+    answer: [inverted_cdf, averaged_inverted_cdf, closest_observation, interpolated_inverted_cdf, hazen, weibull, linear, median_unbiased, normal_unbiased, lower, higher, midpoint, nearest]
+    grader: set
+    tags: [medium]
+    evidence: [numpy/lib/_function_base_impl.py]
+  - id: inv_cpp
+    question: numpy.linalg.inv delegates to a compiled gufunc module. Which C++ source file implements that module? Give the repo-relative path.
+    answer: [numpy/linalg/umath_linalg.cpp, umath_linalg.cpp]
+    grader: contains
+    tags: [hard]
+    evidence: [numpy/linalg/_linalg.py, numpy/linalg/umath_linalg.cpp]
+  - id: einsum_entry
+    question: numpy.einsum (numpy/_core/einsumfunc.py) imports a compiled function from numpy._core.multiarray. What is that function's Python name, and what is the name of the C function in multiarraymodule.c that implements it? Answer as "python_name, c_function".
+    answer: [c_einsum, array_einsum]
+    grader: keywords
+    tags: [hard]
+    evidence: [numpy/_core/einsumfunc.py, numpy/_core/src/multiarray/multiarraymodule.c]
+  - id: default_rng_bitgen
+    question: Which bit generator class does numpy.random.default_rng wrap in the Generator it returns, and in which .pyx file is that class defined? Answer as "ClassName, path".
+    answer: [PCG64, _pcg64.pyx]
+    grader: keywords
+    tags: [hard]
+    evidence: [numpy/random/_generator.pyx, numpy/random/_pcg64.pyx]
+  - id: sort_c_file
+    question: ndarray.sort ultimately calls the C API function PyArray_Sort. Which C source file defines PyArray_Sort? Give the repo-relative path.
+    answer: [numpy/_core/src/multiarray/item_selection.c, item_selection.c]
+    grader: contains
+    tags: [hard]
+    evidence: [numpy/_core/src/multiarray/item_selection.c, numpy/_core/src/multiarray/methods.c]

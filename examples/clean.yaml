@@ -1,0 +1,90 @@
+codebase: ../fixtures/clean
+timeout: 120
+questions:
+  - id: total_wholesale_eu
+    question: "What is the final total returned by compute_invoice('wholesale', 'EU', 'EUR', [('A', 12, '9.99'), ('B', 1, '40')], promo_code='SAVE10')?"
+    answer: 146.26
+    grader: numeric
+    abs_tol: 0.005
+    evidence: [invoicer/engine.py, invoicer/discounts.py, invoicer/constants.py]
+    tags: [hard]
+  - id: total_retail_us_loyalty
+    question: What is the final total for a retail customer in region US, currency USD, buying 3 units of one item at 19.99, no promo code, 3 loyalty years?
+    answer: 69.74
+    grader: numeric
+    abs_tol: 0.005
+    evidence: [invoicer/engine.py, invoicer/discounts.py, invoicer/constants.py]
+    tags: [hard]
+  - id: tax_jpy
+    question: "What tax amount is charged for compute_invoice('retail', 'EU', 'JPY', [('J', 3, '1234'), ('K', 10, '55')], promo_code='FLAT20')?"
+    answer: 841
+    grader: numeric
+    evidence: [invoicer/engine.py, invoicer/discounts.py, invoicer/constants.py]
+    tags: [hard]
+  - id: rounding_mode
+    question: Which rounding mode is applied to money amounts at run time? A) ROUND_HALF_UP B) ROUND_HALF_EVEN C) ROUND_DOWN D) ROUND_CEILING
+    answer: B
+    grader: choice
+    evidence: [invoicer/constants.py, invoicer/rounding.py]
+    tags: [medium]
+  - id: tax_env
+    question: Which environment variable (give the full name for region US) overrides the US tax rate actually used when pricing?
+    answer: PRICING_TAX_RATE_US
+    grader: contains
+    evidence: [invoicer/tax.py, invoicer/constants.py]
+    tags: [medium]
+  - id: rules_wholesale_eu
+    question: A wholesale order in region EU has one line of 12 units, promo code SAVE10 and 2 loyalty years. Which discount rules are applied (by rule name)?
+    answer: [bulk, wholesale, promo]
+    grader: set
+    evidence: [invoicer/discounts.py, invoicer/constants.py]
+    tags: [medium]
+  - id: promo_vs_loyalty
+    question: If an order has both a valid promo code and loyalty years, what happens? A) both discounts stack B) the promo code always wins C) the larger saving wins and the promo code wins a tie D) loyalty always wins
+    answer: C
+    grader: choice
+    evidence: [invoicer/discounts.py, invoicer/constants.py]
+    tags: [medium]
+  - id: ca_tax_rate
+    question: What tax rate, in percent, is applied to orders in region CA (no env overrides)?
+    answer: 13
+    grader: numeric
+    evidence: [invoicer/constants.py, invoicer/tax.py]
+    tags: [medium]
+  - id: free_shipping_threshold
+    question: At what discounted goods amount (in the order currency) does shipping become free for a retail customer?
+    answer: 100
+    grader: numeric
+    evidence: [invoicer/shipping.py, invoicer/constants.py]
+    tags: [easy]
+  - id: bulk_min_qty
+    question: What is the minimum quantity on a single line for the bulk line discount to apply?
+    answer: 10
+    grader: numeric
+    evidence: [invoicer/discounts.py, invoicer/constants.py]
+    tags: [easy]
+  - id: wholesale_pct
+    question: What percentage discount does a wholesale customer get from the wholesale rule?
+    answer: 12
+    grader: numeric
+    evidence: [invoicer/discounts.py, invoicer/constants.py]
+    tags: [easy]
+  - id: shipping_taxed_regions
+    question: In which regions is the shipping fee included in the taxable amount?
+    answer: [EU, UK, CA]
+    grader: set
+    evidence: [invoicer/constants.py, invoicer/tax.py]
+    tags: [medium]
+  - id: valid_promo_codes
+    question: Which promo codes are accepted (give a discount) at run time?
+    answer: [SAVE10, FLAT20]
+    grader: set
+    evidence: [invoicer/discounts.py, invoicer/constants.py]
+    tags: [medium]
+  - id: promo_case
+    question: Is promo code 'save10' (lower case) accepted the same as 'SAVE10'? A) yes B) no
+    answer: A
+    grader: choice
+    evidence: [invoicer/discounts.py, invoicer/constants.py]
+    tags: [easy]
+

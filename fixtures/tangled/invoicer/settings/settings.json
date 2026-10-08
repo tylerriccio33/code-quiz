@@ -1,0 +1,6 @@
+{
+  "bulk": {"min_qty": 10},
+  "wholesale_pct": 12,
+  "ship_tax": ["EU", "UK", "CA"],
+  "promos": {"SAVE10": ["pct", 10], "FLAT20": ["abs", 20]}
+}

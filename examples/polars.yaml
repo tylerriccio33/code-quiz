@@ -1,0 +1,75 @@
+codebase: ../corpora/polars
+timeout: 240
+questions:
+  - id: sqlcontext_struct_file
+    question: Which Rust file defines the `SQLContext` struct used by Polars' SQL engine? Give the repo-relative path.
+    answer: [crates/polars-sql/src/context.rs, context.rs]
+    grader: contains
+    tags: [easy, navigation]
+    evidence: [crates/polars-sql/src/context.rs]
+  - id: python_config_file
+    question: Which Python file defines the `Config` class (used e.g. as `pl.Config.set_tbl_rows`)? Give the repo-relative path.
+    answer: [py-polars/src/polars/config.py, config.py]
+    grader: contains
+    tags: [easy, navigation]
+    evidence: [py-polars/src/polars/config.py]
+  - id: jointype_file
+    question: Which Rust file defines the `JoinType` enum (Inner, Left, Right, ...)? Give the repo-relative path.
+    answer: [crates/polars-defs/src/join.rs, join.rs]
+    grader: contains
+    tags: [easy, navigation]
+    evidence: [crates/polars-defs/src/join.rs]
+  - id: tbl_rows_env
+    question: Which environment variable does Python's `Config.set_tbl_rows` set?
+    answer: POLARS_FMT_MAX_ROWS
+    grader: contains
+    tags: [easy, navigation]
+    evidence: [py-polars/src/polars/config.py]
+  - id: jointype_variants
+    question: List all variants of the `JoinType` enum (including feature-gated ones).
+    answer: [Inner, Left, Right, Full, AsOf, Semi, Anti, IEJoin, Range, Cross]
+    grader: set
+    tags: [medium]
+    evidence: [crates/polars-defs/src/join.rs]
+  - id: asof_strategy_variants
+    question: List the variants of the `AsofStrategy` enum.
+    answer: [Backward, Forward, Nearest]
+    grader: set
+    tags: [medium]
+    evidence: [crates/polars-defs/src/join.rs]
+  - id: closed_window_variants
+    question: List the variants of the Rust `ClosedWindow` enum.
+    answer: [Left, Right, Both, None]
+    grader: set
+    tags: [medium]
+    evidence: [crates/polars-defs/src/time/group_by.rs]
+  - id: polars_sql_deps
+    question: List the `polars-*` crates in the `[dependencies]` section (not dev-dependencies) of the polars-sql crate's Cargo.toml.
+    answer: [polars-compute, polars-core, polars-defs, polars-error, polars-lazy, polars-ops, polars-plan, polars-testing, polars-utils]
+    grader: set
+    tags: [medium]
+    evidence: [crates/polars-sql/Cargo.toml]
+  - id: interpolate_kernel_crate
+    question: "Python's `Expr.interpolate` goes through the PyO3 binding and the DSL down to a function `interpolate(s: &Series, method: InterpolationMethod) -> Series` that does the actual work. Which Rust crate contains that function?"
+    answer: polars-ops
+    grader: contains
+    tags: [hard]
+    evidence: [py-polars/src/polars/expr/expr.py, crates/polars-python/src/expr/general.rs, crates/polars-ops/src/series/ops/interpolation/interpolate.rs]
+  - id: pysqlcontext_backing_crate
+    question: Python's `pl.SQLContext` wraps a `PySQLContext` object. In which Rust crate is the `SQLContext` struct that `PySQLContext` holds actually defined?
+    answer: polars-sql
+    grader: contains
+    tags: [hard]
+    evidence: [py-polars/src/polars/sql/context.py, crates/polars-python/src/sql.rs, crates/polars-sql/src/context.rs]
+  - id: unique_keep_default
+    question: The `keep` argument of Python's `DataFrame.unique` is converted to a Rust enum. Name that enum, and name its `#[default]` variant (answer as `Enum::Variant`).
+    answer: UniqueKeepStrategy::Any
+    grader: contains
+    tags: [hard]
+    evidence: [crates/polars-python/src/conversion/mod.rs, crates/polars-core/src/frame/mod.rs]
+  - id: reload_env_var_file
+    question: After setting the env var, `Config.set_tbl_rows` calls `plr.config_reload_env_var`. Which Rust file defines that function? Give the repo-relative path.
+    answer: [crates/polars-python/src/functions/utils.rs, utils.rs]
+    grader: contains
+    tags: [hard]
+    evidence: [py-polars/src/polars/config.py, crates/polars-python/src/functions/utils.rs]
